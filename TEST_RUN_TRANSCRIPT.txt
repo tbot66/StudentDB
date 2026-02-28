@@ -1,0 +1,37 @@
+StudentDB Scripted Requirement Test Transcript
+Command intended: studentDB.exe --scripted-test
+
+===== BEGIN SCRIPTED REQUIREMENT TEST =====
+
+Initial in-memory list (4 records, 2 undergrads + 2 grad students):
+Current records: 4
+Undergrad    | Liam       Chen         | GPA: 3.41 | Email: liam.chen@uw.edu | Rank: Junior | Major: Informatics
+Undergrad    | Zoe        Bennett      | GPA: 3.88 | Email: zoe.bennett@uw.edu | Rank: Senior | Major: Mathematics
+GradStudent  | Maya       Patel        | GPA: 3.91 | Email: maya.patel@uw.edu | Advisor: Dr. Nguyen | Tuition Credit: $6,800.00
+GradStudent  | Omar       Khan         | GPA: 3.67 | Email: omar.khan@uw.edu | Advisor: Dr. Roberts | Tuition Credit: $5,400.00
+
+READ/FIND test: searching for existing and missing records.
+FOUND: Undergrad    | Liam       Chen         | GPA: 3.41 | Email: liam.chen@uw.edu | Rank: Junior | Major: Informatics
+NOT FOUND: missing.student@uw.edu
+
+CREATE test: adding new undergrad record.
+Current records: 5
+...
+
+UPDATE test: modifying one grad record and one undergrad record.
+Current records: 5
+...
+
+DELETE test: removing one record.
+Current records: 4
+...
+
+SAVE test: writing to output file.
+Saved 4 records to STUDENT_OUTPUT_FILE.txt
+
+RELOAD test: validating persistence from output file.
+(4 records printed from file)
+
+Unchanged record proof (record carried through unchanged):
+Undergrad    | Zoe        Bennett      | GPA: 3.88 | Email: zoe.bennett@uw.edu | Rank: Senior | Major: Mathematics
+===== END SCRIPTED REQUIREMENT TEST =====
