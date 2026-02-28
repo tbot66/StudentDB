@@ -1,0 +1,11 @@
+Alice
+Anderson
+3.9
+aanderson@uw.edu
+Junior
+
+Bob
+Smith
+3.5
+bradshaw@uw.edu
+Sophomore
