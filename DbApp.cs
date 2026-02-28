@@ -1,307 +1,542 @@
-﻿/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 // Change History
-// 2/10/2026--------- Professor Costerella & Students -------- T Info 200 student database app creation
-// 2/10/2026--------- Professor Costerella & Students -------- Creation of CRUD operations for the student database app
-// 2/11/2026--------- Professor Costerella & Students -------- Creation of the main menu and user selection for the student database app
-
+// 2/10/2026 - Professor Costerella & Students - Student database app creation
+// 2/11/2026 - Professor Costerella & Students - Main menu and user selection
+// 2/28/2026 - Codex - Completed polymorphic CRUD + file persistence + full test workflow output
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Runtime.CompilerServices;
 using System.Globalization;
+using System.IO;
 
-namespace StudentDB
+namespace studentDB
 {
-	internal class DbApp
-	{
-		// Raw storage of the student objects representing students in the school
-		private List<Student> students = new List<Student>(); 
-		public DbApp()
-		{
-			// Temporary code that loads 4 students into the database 
-			LoadTestDataIntoList();
-			ReadStudentDataFromInputFile();
+    /// <summary>
+    /// Coordinates in-memory student records and file-based persistence.
+    /// </summary>
+    internal class DbApp
+    {
+        private const string StudentInputFile = "STUDENT_INPUT_FILE.txt";
+        private const string StudentOutputFile = "STUDENT_OUTPUT_FILE.txt";
 
-		}
+        // Runtime storage uses the required List<Student> collection.
+        private readonly List<Student> students = new List<Student>();
 
-		private const string STUDENT_INPUT_FILE = "STUDENT_INPUT_FILE.txt";
-		private void ReadStudentDataFromInputFile()
-		{
-			// If the file doesn't exist, nothing to read
-			if (!File.Exists(STUDENT_INPUT_FILE))
-			{
-				return;
-			}
+        /// <summary>
+        /// Initializes the app by loading records from input text file, or fallback test data.
+        /// </summary>
+        public DbApp()
+        {
+            LoadFromFile(StudentInputFile);
+            if (students.Count == 0)
+            {
+                LoadRequiredTestData();
+            }
+        }
 
-			// Create the file object and point to the real file on disk
-			using (var inFile = new StreamReader(STUDENT_INPUT_FILE))
-			{
-				string first;
-				// Use the fileobj to read in the data; records are expected as 5 lines each:
-				// First, Last, GPA, Email, Rank
-				while ((first = inFile.ReadLine()) != null && first != string.Empty)
-				{
-					string last = inFile.ReadLine();
-					string gpaLine = inFile.ReadLine();
-					string email = inFile.ReadLine();
-					string rankLine = inFile.ReadLine();
+        /// <summary>
+        /// Starts interactive CRUD menu loop.
+        /// </summary>
+        public void GoDatabase()
+        {
+            while (true)
+            {
+                DisplayMainMenu();
+                char selection = GetUserSelection();
 
-					if (last == null || gpaLine == null || email == null || rankLine == null)
-					{
-						// Incomplete record at end of file — skip and log
-						Console.WriteLine("WARNING: Incomplete student record encountered in input file; skipping.");
-						break;
-					}
+                switch (char.ToUpperInvariant(selection))
+                {
+                    case 'C':
+                        CreateStudentRecordInteractive();
+                        break;
+                    case 'F':
+                        FindStudentRecordInteractive();
+                        break;
+                    case 'U':
+                        UpdateStudentRecordInteractive();
+                        break;
+                    case 'D':
+                        DeleteStudentRecordInteractive();
+                        break;
+                    case 'P':
+                        PrintAllRecords();
+                        break;
+                    case 'S':
+                        SaveStudentDataToOutputFile();
+                        break;
+                    case 'E':
+                        SaveStudentDataToOutputFile();
+                        return;
+                    case 'Q':
+                        return;
+                    default:
+                        Console.WriteLine("\nERROR: Invalid menu selection.");
+                        break;
+                }
+            }
+        }
 
-					// Parse GPA using invariant culture to avoid locale issues
-					if (!double.TryParse(gpaLine, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double gpa))
-					{
-						Console.WriteLine($"WARNING: Invalid GPA value '{gpaLine}' for student {first} {last}; skipping record.");
-						continue;
-					}
+        /// <summary>
+        /// Runs a full scripted test that executes CRUD and persistence requirements.
+        /// </summary>
+        public void RunScriptedRequirementTest()
+        {
+            Console.WriteLine("===== BEGIN SCRIPTED REQUIREMENT TEST =====");
+            students.Clear();
+            LoadRequiredTestData();
 
-                    // Parse rank (allow case-insensitive parsing)
-                    if (!Enum.TryParse<YearRank>(rankLine, true, out YearRank rank))
-					{
-						Console.WriteLine($"WARNING: Invalid YearRank value '{rankLine}' for student {first} {last}; skipping record.");
-						continue;
-					}
+            Console.WriteLine("\nInitial in-memory list (4 records, 2 undergrads + 2 grad students):");
+            PrintAllRecords();
 
-					// Create a new student object utilizing the data and add it to the list
-					Student stu = new Student(first, last, gpa, email);
-					students.Add(stu);
-				}
-			}
+            Console.WriteLine("\nREAD/FIND test: searching for existing and missing records.");
+            PrintFindResult("liam.chen@uw.edu");
+            PrintFindResult("missing.student@uw.edu");
 
-			// Close the file reference - using ensures disposal
-		}
+            Console.WriteLine("\nCREATE test: adding new undergrad record.");
+            CreateStudentRecord(new Undergrad("Elena", "Rios", "elena.rios@uw.edu", 3.73, YearRank.Sophomore, "Biology"));
+            PrintAllRecords();
 
+            Console.WriteLine("\nUPDATE test: modifying one grad record and one undergrad record.");
+            Student gradToUpdate = FindStudentRecord("maya.patel@uw.edu");
+            if (gradToUpdate is GradStudent)
+            {
+                UpdateStudentRecord("maya.patel@uw.edu", "Maya", "Patel", 3.95, "maya.patel@uw.edu", "Dr. Kline", 7200m);
+            }
 
+            Student undergradToUpdate = FindStudentRecord("liam.chen@uw.edu");
+            if (undergradToUpdate is Undergrad)
+            {
+                UpdateStudentRecord("liam.chen@uw.edu", "Liam", "Chen", 3.46, "liam.chen@uw.edu", YearRank.Senior, "Computer Science");
+            }
+            PrintAllRecords();
 
-		// Main loop running the typical CRUD operations 
-		public void GoDatabase()
-		{
-			while (true)
-			{
-				// This displays a main menu and asks for a user selection 
-				DisplayMainMenu();
+            Console.WriteLine("\nDELETE test: removing one record.");
+            DeleteStudentRecord("omar.khan@uw.edu");
+            PrintAllRecords();
 
-				// Caputures the users selection 
-				char selection = GetUserSelection();
+            Console.WriteLine("\nSAVE test: writing to output file.");
+            SaveStudentDataToOutputFile();
 
+            Console.WriteLine("\nRELOAD test: validating persistence from output file.");
+            List<Student> reloaded = LoadFromLines(File.ReadAllLines(StudentOutputFile));
+            foreach (Student student in reloaded)
+            {
+                Console.WriteLine(student);
+            }
 
-				// This uses the user selection here to "farm out" the Crud operations and 
-				// Other db app options
+            Console.WriteLine("\nUnchanged record proof (record carried through unchanged):");
+            Student unchanged = FindStudentRecord("zoe.bennett@uw.edu");
+            if (unchanged != null)
+            {
+                Console.WriteLine(unchanged);
+            }
 
-				switch (selection)
-				{
+            Console.WriteLine("===== END SCRIPTED REQUIREMENT TEST =====");
+        }
 
-					case 'C':
-					case 'c':
-						// [C] reate a new student record
-						CreatNewStudentRecord();
-						break;
+        /// <summary>
+        /// Adds a student to the database if email is unique.
+        /// </summary>
+        public bool CreateStudentRecord(Student student)
+        {
+            if (student == null || string.IsNullOrWhiteSpace(student.EmailAddress))
+            {
+                return false;
+            }
 
-					case 'F':
-					case 'f':
-						//[ F]ind a single existing student record
-						// TODO: this util method will also return the stu reference or NULL
-						// Indicating the student was not found 
-						FindStudentRecord();
-						break;
+            if (FindStudentRecord(student.EmailAddress) != null)
+            {
+                return false;
+            }
 
-					case 'U':
-					case 'u':
-						// [U]pdate an existing student record
-						UpdateStudentRecord();
-						break;
+            students.Add(student);
+            return true;
+        }
 
-					case 'D':
-					case 'd':
-						// [D]elete an existing student record
-						DeleteStudentRecord();
-						break;
+        /// <summary>
+        /// Finds a student by email and returns null when absent.
+        /// </summary>
+        public Student FindStudentRecord(string email)
+        {
+            foreach (Student student in students)
+            {
+                if (string.Equals(student.EmailAddress, email, StringComparison.OrdinalIgnoreCase))
+                {
+                    return student;
+                }
+            }
 
-					case 'P':
-					case 'p':
-						// [P]rint all student records
-						PrintAllRecords();
-						break; 
-						
-					case 'E':
-					case 'e':
-						// [E]xit the app AFTER SAVING
-						SaveStudentDataToOutputFile();
-						Environment.Exit(0);
-						break;
+            return null;
+        }
 
-					case 'Q':
-					case 'q':
-						// [Q]uit the app WITHOUT SAVING
-						Environment.Exit(0);
-						break;
+        /// <summary>
+        /// Updates a specific undergrad record by primary key email.
+        /// </summary>
+        public bool UpdateStudentRecord(string existingEmail, string firstName, string lastName, double gpa, string email, YearRank rank, string degreeMajor)
+        {
+            Student student = FindStudentRecord(existingEmail);
+            if (!(student is Undergrad undergrad))
+            {
+                return false;
+            }
 
-					case 'S':
-					case 's':
-						// [S]ave all changes to the outputfile and continue the app
-						SaveStudentDataToOutputFile();
-						break;
+            if (!CanUseEmail(existingEmail, email))
+            {
+                return false;
+            }
 
-					default:
-						Console.WriteLine($"  ERROR: {selection} is not a valid choice. Please select again: ");
-						break;
-				}
+            undergrad.FirstName = firstName;
+            undergrad.LastName = lastName;
+            undergrad.Gpa = gpa;
+            undergrad.EmailAddress = email;
+            undergrad.Rank = rank;
+            undergrad.DegreeMajor = degreeMajor;
+            return true;
+        }
 
+        /// <summary>
+        /// Updates a specific grad student record by primary key email.
+        /// </summary>
+        public bool UpdateStudentRecord(string existingEmail, string firstName, string lastName, double gpa, string email, string advisor, decimal tuitionCredit)
+        {
+            Student student = FindStudentRecord(existingEmail);
+            if (!(student is GradStudent gradStudent))
+            {
+                return false;
+            }
 
+            if (!CanUseEmail(existingEmail, email))
+            {
+                return false;
+            }
 
-				
-			}
-		}
+            gradStudent.FirstName = firstName;
+            gradStudent.LastName = lastName;
+            gradStudent.Gpa = gpa;
+            gradStudent.EmailAddress = email;
+            gradStudent.FacultyAdvisor = advisor;
+            gradStudent.TuitionCredit = tuitionCredit;
+            return true;
+        }
 
-		private void FindStudentRecord()
-		{
-			throw new NotImplementedException();
-		}
+        /// <summary>
+        /// Deletes a student by primary key email.
+        /// </summary>
+        public bool DeleteStudentRecord(string email)
+        {
+            Student student = FindStudentRecord(email);
+            if (student == null)
+            {
+                return false;
+            }
 
-		// This allows the creation of a new student 
-		// BUT will only be done if the student isnt in already 
-		private void CreatNewStudentRecord()
-		{     
-		// Use the util method find to see if the student to add is not
-		// Already in the database. if so print an error and return
-		string email = string.Empty;
-		Student stu = FindStudentRecord(out email);
+            students.Remove(student);
+            return true;
+        }
 
-			if (stu == null)
-			{
-				// If the student isnt in the database - we can add them 
-				Console.Write($"Creating new student record for email: {email}");
-				Console.Write("ENTER first name: ");
-				string firstname = Console.ReadLine();
-				Console.Write("ENTER last name: ");
-				string lastname = Console.ReadLine();
-				Console.Write("ENTER grade point average: ");
-				double gpa = double.Parse(Console.ReadLine());
-				Console.WriteLine("[1]Freshman [2]Sophomore [3]Junior [4]Senior");
-				Console.WriteLine("ENTER year rank in school: ");
-				YearRank rank = (YearRank)int.Parse(Console.ReadLine());
-				// Create  the new student object and add it to the list 
-				stu = new Student(firstname, lastname, gpa, email);
-				students.Add(stu);
+        /// <summary>
+        /// Saves all in-memory records to plain text output file.
+        /// </summary>
+        public void SaveStudentDataToOutputFile()
+        {
+            using (StreamWriter outFile = new StreamWriter(StudentOutputFile, false))
+            {
+                foreach (Student student in students)
+                {
+                    outFile.WriteLine(student.ToFileRecord());
+                }
+            }
 
-				// NOTE: removed duplicate creation/add that previously added the new student twice
-			}
-			else
-			{
-				// Student is alreadt in the database then reports back to the user and return 
-				Console.WriteLine($"ERROR: Student with the email {email} already exists. Cannot create Duplicate record");
+            Console.WriteLine("Saved {0} records to {1}", students.Count, StudentOutputFile);
+        }
 
-			}
-		}
+        /// <summary>
+        /// Prints all records currently in memory.
+        /// </summary>
+        public void PrintAllRecords()
+        {
+            Console.WriteLine("\nCurrent records: {0}", students.Count);
+            foreach (Student student in students)
+            {
+                Console.WriteLine(student);
+            }
+        }
 
-
-		// This find operation will search the current list to see if the given email 
-		// Is present and return the student record if its found, otherwise return no 
-		private Student FindStudentRecord(out string email)
-		{
-			// This takes the desired email address from the user 
-			Console.WriteLine("\nENTER the email address (Primary Key) to search for: ");
-			email = Console.ReadLine();
-
-			// This will iterate through the database and look for the email 
-			foreach (Student stu in students)
-			{
-				if (email == stu.EmailAddress)
-				{
-					// This states the email was found and reports back to the user and returns the stu object 
-					Console.Write($"FOUND the email address: {stu.EmailAddress}");
-					return stu;
-				}
-
-			}
-			// This states the email wasnt found and notifies the user 
-			Console.WriteLine($"{email} NOT FOUND");
-			return null;
-		}
-
-		private void UpdateStudentRecord()
-		{
-		   
-		}
-
-		private void DeleteStudentRecord()
-		{
-			throw new NotImplementedException();
-		}
-
-		private string STUDENT_OUTPUTFILE = "STUDENT_OUTPUT_FILE.txt";
-		private void SaveStudentDataToOutputFile()
-		{
-			// Make the file and associated objects
-			using (var outFile = new StreamWriter(STUDENT_OUTPUTFILE, false))
-			{
-
-				// Use a stable, machine-friendly field order: First, Last, GPA, Email, Rank
-				foreach (Student stu in students)
-				{
-					outFile.WriteLine(stu.Firstname);
-					outFile.WriteLine(stu.Lastname);
-					outFile.WriteLine(stu.Gpa.ToString("F2", CultureInfo.InvariantCulture));
-					outFile.WriteLine(stu.EmailAddress);
-					outFile.WriteLine(stu.Rank.ToString());
-					// Keep console output human-readable
-					Console.WriteLine(stu);
-				}
-
-			}
-
-		}
-
-		// This prints out each and every student that is in the database
-		private void PrintAllRecords()
-		{
-			foreach (Student stu in students)
-			{
-				Console.WriteLine(stu);
-			}
-		}
-
-		// This accepts the users selection and places it in the main menu
-		private char GetUserSelection()
-		{
-		   ConsoleKeyInfo key =Console.ReadKey();
-			return key.KeyChar;
-		}
-
-		// This displays the menu for the user to see what they can press. each character to press is []
-		public void DisplayMainMenu()
-		{
-			Console.Write(@"
+        /// <summary>
+        /// Displays the text menu for interactive mode.
+        /// </summary>
+        public void DisplayMainMenu()
+        {
+            Console.Write(@"
 ╔══════════════════════════════════════════╗
 ║        Student Database Main Menu        ║
 ╚══════════════════════════════════════════╝
- ■ [C]reate a new student record 
- ■ [F]ind a single existing student record 
- ■ [P]rint all student records 
+ ■ [C]reate a new student record
+ ■ [F]ind a single existing student record
+ ■ [P]rint all student records
  ■ [U]pdate an existing student record
  ■ [D]elete an existing student record
+ ■ [S]ave all changes and continue the app
  ■ [E]xit the app AFTER SAVING
  ■ [Q]uit the app WITHOUT SAVING
- ■ [S]ave all changes and continue the app
 ════════════════════════════════════════════
 User Selection: ");
+        }
 
-		}
+        /// <summary>
+        /// Reads and returns one menu selection key.
+        /// </summary>
+        private char GetUserSelection()
+        {
+            ConsoleKeyInfo key = Console.ReadKey();
+            Console.WriteLine();
+            return key.KeyChar;
+        }
 
+        /// <summary>
+        /// Handles interactive create flow including student subtype selection.
+        /// </summary>
+        private void CreateStudentRecordInteractive()
+        {
+            Console.Write("Enter email address for new student: ");
+            string email = Console.ReadLine();
+            if (FindStudentRecord(email) != null)
+            {
+                Console.WriteLine("ERROR: Student already exists.");
+                return;
+            }
 
-		// This is a test for the data in the array list (until we do another such as a file
-		private void LoadTestDataIntoList()
-		{
-			students.Add(new Student("Alice", "Anderson", 3.9, "aanderson@uw.edu"));
-			students.Add(new Student("Bob", "Bradshaw", 2.9, "bbradshaw@uw.edu"));
-			students.Add(new Student("Johnny", "Dylan", 3.3, "jdylan@uw.edu"));
-			students.Add(new Student("Samantha", "Cook", 1.5, "scook@uw.edu"));
-		}
-	}
+            Console.Write("Enter first name: ");
+            string first = Console.ReadLine();
+            Console.Write("Enter last name: ");
+            string last = Console.ReadLine();
+            Console.Write("Enter GPA: ");
+            double gpa = ParseDouble(Console.ReadLine());
+
+            Console.Write("Type [U]ndergrad or [G]radStudent: ");
+            char kind = char.ToUpperInvariant(Console.ReadKey().KeyChar);
+            Console.WriteLine();
+
+            if (kind == 'U')
+            {
+                Console.Write("Enter rank (Freshman/Sophomore/Junior/Senior): ");
+                YearRank rank = ParseRank(Console.ReadLine());
+                Console.Write("Enter degree major: ");
+                string major = Console.ReadLine();
+                CreateStudentRecord(new Undergrad(first, last, email, gpa, rank, major));
+            }
+            else if (kind == 'G')
+            {
+                Console.Write("Enter faculty advisor: ");
+                string advisor = Console.ReadLine();
+                Console.Write("Enter tuition credit: ");
+                decimal tuition = ParseDecimal(Console.ReadLine());
+                CreateStudentRecord(new GradStudent(first, last, email, gpa, advisor, tuition));
+            }
+            else
+            {
+                Console.WriteLine("ERROR: invalid subtype.");
+            }
+        }
+
+        /// <summary>
+        /// Handles interactive read/find flow.
+        /// </summary>
+        private void FindStudentRecordInteractive()
+        {
+            Console.Write("Enter email address to find: ");
+            string email = Console.ReadLine();
+            PrintFindResult(email);
+        }
+
+        /// <summary>
+        /// Handles interactive update flow.
+        /// </summary>
+        private void UpdateStudentRecordInteractive()
+        {
+            Console.Write("Enter email address to update: ");
+            string email = Console.ReadLine();
+            Student existing = FindStudentRecord(email);
+            if (existing == null)
+            {
+                Console.WriteLine("ERROR: record not found.");
+                return;
+            }
+
+            Console.Write("Enter new first name: ");
+            string first = Console.ReadLine();
+            Console.Write("Enter new last name: ");
+            string last = Console.ReadLine();
+            Console.Write("Enter new GPA: ");
+            double gpa = ParseDouble(Console.ReadLine());
+            Console.Write("Enter new email: ");
+            string newEmail = Console.ReadLine();
+
+            bool updated;
+            if (existing is Undergrad undergrad)
+            {
+                Console.Write("Enter new rank: ");
+                YearRank rank = ParseRank(Console.ReadLine());
+                Console.Write("Enter new major: ");
+                string major = Console.ReadLine();
+                updated = UpdateStudentRecord(email, first, last, gpa, newEmail, rank, major);
+            }
+            else
+            {
+                Console.Write("Enter new faculty advisor: ");
+                string advisor = Console.ReadLine();
+                Console.Write("Enter new tuition credit: ");
+                decimal tuition = ParseDecimal(Console.ReadLine());
+                updated = UpdateStudentRecord(email, first, last, gpa, newEmail, advisor, tuition);
+            }
+
+            Console.WriteLine(updated ? "Record updated." : "ERROR: update failed.");
+        }
+
+        /// <summary>
+        /// Handles interactive delete flow.
+        /// </summary>
+        private void DeleteStudentRecordInteractive()
+        {
+            Console.Write("Enter email address to delete: ");
+            string email = Console.ReadLine();
+            bool deleted = DeleteStudentRecord(email);
+            Console.WriteLine(deleted ? "Record deleted." : "ERROR: record not found.");
+        }
+
+        /// <summary>
+        /// Loads records from file path if available.
+        /// </summary>
+        private void LoadFromFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                return;
+            }
+
+            List<Student> loaded = LoadFromLines(File.ReadAllLines(filePath));
+            students.Clear();
+            students.AddRange(loaded);
+        }
+
+        /// <summary>
+        /// Parses plain-text lines into polymorphic student objects.
+        /// </summary>
+        private List<Student> LoadFromLines(string[] lines)
+        {
+            List<Student> parsed = new List<Student>();
+            foreach (string rawLine in lines)
+            {
+                if (string.IsNullOrWhiteSpace(rawLine))
+                {
+                    continue;
+                }
+
+                string[] parts = rawLine.Split('|');
+                if (parts.Length < 7)
+                {
+                    continue;
+                }
+
+                string kind = parts[0].Trim();
+                string first = parts[1].Trim();
+                string last = parts[2].Trim();
+                string email = parts[3].Trim();
+                double gpa = ParseDouble(parts[4]);
+
+                if (kind == "U")
+                {
+                    YearRank rank = ParseRank(parts[5]);
+                    string major = parts[6].Trim();
+                    parsed.Add(new Undergrad(first, last, email, gpa, rank, major));
+                }
+                else if (kind == "G")
+                {
+                    string advisor = parts[5].Trim();
+                    decimal tuition = ParseDecimal(parts[6]);
+                    parsed.Add(new GradStudent(first, last, email, gpa, advisor, tuition));
+                }
+            }
+
+            return parsed;
+        }
+
+        /// <summary>
+        /// Loads required test seed with 4 records: 2 undergrads and 2 grad students.
+        /// </summary>
+        private void LoadRequiredTestData()
+        {
+            students.Add(new Undergrad("Liam", "Chen", "liam.chen@uw.edu", 3.41, YearRank.Junior, "Informatics"));
+            students.Add(new Undergrad("Zoe", "Bennett", "zoe.bennett@uw.edu", 3.88, YearRank.Senior, "Mathematics"));
+            students.Add(new GradStudent("Maya", "Patel", "maya.patel@uw.edu", 3.91, "Dr. Nguyen", 6800m));
+            students.Add(new GradStudent("Omar", "Khan", "omar.khan@uw.edu", 3.67, "Dr. Roberts", 5400m));
+        }
+
+        /// <summary>
+        /// Prints find result in a human-obvious format.
+        /// </summary>
+        private void PrintFindResult(string email)
+        {
+            Student found = FindStudentRecord(email);
+            if (found == null)
+            {
+                Console.WriteLine("NOT FOUND: {0}", email);
+                return;
+            }
+
+            Console.WriteLine("FOUND: {0}", found);
+        }
+
+        /// <summary>
+        /// Checks if a replacement email value is valid and not already owned by another record.
+        /// </summary>
+        private bool CanUseEmail(string existingEmail, string replacementEmail)
+        {
+            if (string.Equals(existingEmail, replacementEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return FindStudentRecord(replacementEmail) == null;
+        }
+
+        /// <summary>
+        /// Parses a string into a double using invariant culture.
+        /// </summary>
+        private static double ParseDouble(string value)
+        {
+            if (double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsed))
+            {
+                return parsed;
+            }
+
+            return 0.0;
+        }
+
+        /// <summary>
+        /// Parses a string into a decimal using invariant culture.
+        /// </summary>
+        private static decimal ParseDecimal(string value)
+        {
+            if (decimal.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out decimal parsed))
+            {
+                return parsed;
+            }
+
+            return 0m;
+        }
+
+        /// <summary>
+        /// Parses a string into a YearRank enum with a freshman fallback.
+        /// </summary>
+        private static YearRank ParseRank(string value)
+        {
+            if (Enum.TryParse(value, true, out YearRank rank))
+            {
+                return rank;
+            }
+
+            return YearRank.Freshman;
+        }
+    }
 }

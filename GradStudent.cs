@@ -1,51 +1,67 @@
-﻿
+/////////////////////////////////////////////////////////////////////////////////
+// Change History
+// 2/10/2026 - Professor Costerella & Students - Initial grad student class
+// 2/28/2026 - Codex - Added advisor/tuition persistence and display support
 
-
-using StudentDB;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Globalization;
 
 namespace studentDB
 {
+    /// <summary>
+    /// Represents a graduate student record.
+    /// </summary>
     internal class GradStudent : Student
     {
-        public decimal TuitionCredit { get; set; }
-
+        /// <summary>
+        /// Gets or sets the graduate advisor.
+        /// </summary>
         public string FacultyAdvisor { get; set; }
 
-        public GradStudent(string first, string last, double gpa, string email, decimal credit, string advisor)
-            : base(first, last, gpa, email)
+        /// <summary>
+        /// Gets or sets the tuition credit amount for teaching support.
+        /// </summary>
+        public decimal TuitionCredit { get; set; }
+
+        /// <summary>
+        /// Gets the discriminator used in output and persistence.
+        /// </summary>
+        public override string StudentKind { get { return "GradStudent"; } }
+
+        /// <summary>
+        /// Initializes a new graduate student record.
+        /// </summary>
+        public GradStudent(string firstName, string lastName, string emailAddress, double gpa, string facultyAdvisor, decimal tuitionCredit)
+            : base(firstName, lastName, emailAddress, gpa)
         {
-            TuitionCredit = credit;
-            FacultyAdvisor = advisor;
+            FacultyAdvisor = facultyAdvisor;
+            TuitionCredit = tuitionCredit;
         }
 
+        /// <summary>
+        /// Returns a text line for file persistence.
+        /// </summary>
+        public override string ToFileRecord()
+        {
+            return string.Format(CultureInfo.InvariantCulture,
+                "G|{0}|{1}|{2}|{3:F2}|{4}|{5:F2}",
+                FirstName,
+                LastName,
+                EmailAddress,
+                Gpa,
+                FacultyAdvisor,
+                TuitionCredit);
+        }
+
+        /// <summary>
+        /// Returns a readable row for the console.
+        /// </summary>
         public override string ToString()
         {
-            // This declares a String that builds using the data from the student project
-            string str = base.ToString();
-            str += $"Credit: {TuitionCredit:C}\n";
-            str += $"Advisor: {FacultyAdvisor}\n";
-
-            // Returns the built string
-            return str;
-        }
-
-        public string ToStringForOutputFile()
-        {
-            //This declares a String that builds using the data from the student project
-
-            string str = string.Empty;
-            str += $"{Firstname}\n";
-            str += $"{Lastname}\n";
-            str += $"{EmailAddress}\n";
-            str += $"{GradeptAvg:F2}\n";
-
-            // Returns the built string
-            return str;
+            return base.ToString() + string.Format(CultureInfo.InvariantCulture,
+                " | Advisor: {0} | Tuition Credit: {1:C}",
+                FacultyAdvisor,
+                TuitionCredit);
         }
     }
 }

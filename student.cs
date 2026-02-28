@@ -1,63 +1,72 @@
-﻿/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 // Change History
-// 2/10/2026 --------- Professor Costerella & Students -------- T Info 200 student database app creation
-// 2/12/2026 - Costerella & Students - Continued development of the student.cs
+// 2/10/2026 - Professor Costerella & Students - Student database app creation
+// 2/12/2026 - Professor Costerella & Students - Continued development
+// 2/28/2026 - Codex - Refactored Student model to support inheritance and file serialization
 
-using System.Dynamic;
+using System;
+using System.Globalization;
 
-namespace StudentDB
+namespace studentDB
 {
-
-    // This POCO class allows us to get information on said students 
-    internal class Student
+    /// <summary>
+    /// Base class for all student records in the database.
+    /// </summary>
+    internal abstract class Student
     {
-        public string Firstname { get; set; }
-        public string Lastname { get; set; }
-        public double GradeptAvg { get; set; }
+        /// <summary>
+        /// Gets or sets the student's first name.
+        /// </summary>
+        public string FirstName { get; set; }
 
-        // We will use this as the primary key in the database 
-		public string EmailAddress { get; set; }
-        public string First { get; }
-        public string Last { get; }
-        public double Gpa { get; }
-        public string Email { get; }
+        /// <summary>
+        /// Gets or sets the student's last name.
+        /// </summary>
+        public string LastName { get; set; }
 
-        public Student(string first, string last, double gpa, string email)
+        /// <summary>
+        /// Gets or sets the student's primary key email address.
+        /// </summary>
+        public string EmailAddress { get; set; }
+
+        /// <summary>
+        /// Gets or sets the student's grade point average.
+        /// </summary>
+        public double Gpa { get; set; }
+
+        /// <summary>
+        /// Gets the kind of student for persistence and display.
+        /// </summary>
+        public abstract string StudentKind { get; }
+
+        /// <summary>
+        /// Initializes a new student object.
+        /// </summary>
+        protected Student(string firstName, string lastName, string emailAddress, double gpa)
         {
-            First = first;
-            Last = last;
+            FirstName = firstName;
+            LastName = lastName;
+            EmailAddress = emailAddress;
             Gpa = gpa;
-            Email = email;
         }
 
+        /// <summary>
+        /// Builds a single-line record for saving to the text file.
+        /// </summary>
+        public abstract string ToFileRecord();
+
+        /// <summary>
+        /// Creates a readable display string for this student.
+        /// </summary>
         public override string ToString()
         {
-            // This declares a String that builds using the data from the student project
-    
-            string str = "******* Student Record *******\n";
-            str += $"First:{Firstname}\n";
-			str += $" Last:{Lastname}\n";
-			str += $"Email:{EmailAddress}\n";
-			str += $"  GPA:{GradeptAvg:F2}\n";
-
-            // Returns the built string
-			return str; 
-        }
-
-        public string ToStringForOutputFile()
-        {
-            //This declares a String that builds using the data from the student project
-
-            string str = string.Empty;
-            str += $"{Firstname}\n";
-            str += $"{Lastname}\n";
-            str += $"{EmailAddress}\n";
-            str += $"{GradeptAvg:F2}\n";
-
-            // Returns the built string
-            return str;
+            return string.Format(CultureInfo.InvariantCulture,
+                "{0,-11} | {1,-10} {2,-12} | GPA: {3:F2} | Email: {4}",
+                StudentKind,
+                FirstName,
+                LastName,
+                Gpa,
+                EmailAddress);
         }
     }
-
 }
-    

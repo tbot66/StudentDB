@@ -1,0 +1,4 @@
+U|Liam|Chen|liam.chen@uw.edu|3.41|Junior|Informatics
+U|Zoe|Bennett|zoe.bennett@uw.edu|3.88|Senior|Mathematics
+G|Maya|Patel|maya.patel@uw.edu|3.91|Dr. Nguyen|6800.00
+G|Omar|Khan|omar.khan@uw.edu|3.67|Dr. Roberts|5400.00
